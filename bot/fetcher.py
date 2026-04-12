@@ -9,6 +9,23 @@ def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text).strip()
 
 
+def _extract_image(entry) -> str | None:
+    """Try to find a thumbnail/image URL from an RSS entry."""
+    # media:thumbnail (common on Medium)
+    if hasattr(entry, "media_thumbnail") and entry.media_thumbnail:
+        return entry.media_thumbnail[0].get("url")
+    # media:content with image type
+    if hasattr(entry, "media_content") and entry.media_content:
+        for m in entry.media_content:
+            if "image" in m.get("type", "") or m.get("medium") == "image":
+                return m.get("url")
+    # <img> inside summary HTML
+    match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', getattr(entry, "summary", ""))
+    if match:
+        return match.group(1)
+    return None
+
+
 def _medium_url(topic: str) -> str:
     return f"https://medium.com/feed/tag/{topic.lower().replace(' ', '-')}"
 
@@ -55,6 +72,7 @@ def fetch_articles(
                         "title": getattr(entry, "title", "No title"),
                         "link": link,
                         "summary": summary,
+                        "image": _extract_image(entry),
                         "topic": topic,
                         "author": getattr(entry, "author", "Unknown"),
                     }

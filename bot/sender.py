@@ -25,17 +25,32 @@ async def send_articles(articles: list[dict], chat_id: str = None):
     await bot.send_message(chat_id=chat_id, text=header, parse_mode=ParseMode.HTML)
 
     for topic, topic_articles in by_topic.items():
-        lines = [f"<b>#{topic.upper()}</b>\n"]
-        for a in topic_articles:
-            lines.append(f'<a href="{a["link"]}">{a["title"]}</a>')
-            lines.append(f'<i>{a["author"]}</i>')
-            if a["summary"]:
-                lines.append(a["summary"] + "...")
-            lines.append("")
-
         await bot.send_message(
             chat_id=chat_id,
-            text="\n".join(lines),
+            text=f"<b>#{topic.upper()}</b>",
             parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True,
         )
+        for a in topic_articles:
+            # Telegram caption limit is 1024 chars
+            caption = f'<a href="{a["link"]}">{a["title"]}</a>\n<i>{a["author"]}</i>'
+            if a.get("summary"):
+                caption += f'\n\n{a["summary"]}...'
+
+            if a.get("image"):
+                try:
+                    await bot.send_photo(
+                        chat_id=chat_id,
+                        photo=a["image"],
+                        caption=caption[:1024],
+                        parse_mode=ParseMode.HTML,
+                    )
+                    continue
+                except Exception:
+                    pass  # Fall through to text if image fails
+
+            await bot.send_message(
+                chat_id=chat_id,
+                text=caption,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=False,
+            )
