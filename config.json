@@ -1,4 +1,15 @@
 {
-  "owner_id": "",
-  "users": {}
+  "owner_id": "65128998",
+  "users": {
+    "65128998": {
+      "topics": [
+        "python",
+        "artificial-intelligence",
+        "data-science"
+      ],
+      "custom_sources": [],
+      "max_articles_per_topic": 3,
+      "send_hour_utc": 7
+    }
+  }
 }
