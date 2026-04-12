@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+from datetime import datetime, timezone
 
 from bot.commands import handle_commands
 from bot.fetcher import fetch_articles
@@ -7,8 +8,19 @@ from bot.sender import send_articles
 from bot.storage import load_config, load_seen, mark_seen
 
 
-async def run_fetch():
+def is_send_time(config: dict) -> bool:
+    """Return True if the current UTC hour matches the configured send hour."""
+    send_hour = config.get("send_hour_utc", 7)
+    return datetime.now(timezone.utc).hour == send_hour
+
+
+async def run_fetch(force: bool = False):
     config = load_config()
+
+    if not force and not is_send_time(config):
+        print(f"[fetch] Not send time yet (send_hour_utc={config.get('send_hour_utc', 7)}). Skipping.")
+        return
+
     seen = load_seen()
 
     print(f"[fetch] Topics: {config['topics']}")
@@ -42,10 +54,15 @@ async def main():
         default=120,
         help="Seconds to poll for commands (default: 120)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force fetch regardless of send_hour_utc setting",
+    )
     args = parser.parse_args()
 
     if args.mode in ("fetch", "both"):
-        await run_fetch()
+        await run_fetch(force=args.force)
 
     if args.mode in ("listen", "both"):
         await handle_commands(duration=args.listen_duration)

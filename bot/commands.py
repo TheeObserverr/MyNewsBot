@@ -23,6 +23,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/sources — List custom RSS feeds\n"
         "/fetch — Manually pull articles now\n"
         "/setmax 5 — Max articles per topic (default 3)\n"
+        "/settime 8 — Set daily send hour in UTC (0–23)\n"
         "/help — Show this message"
     )
     await update.message.reply_html(text)
@@ -134,6 +135,23 @@ async def cmd_setmax(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Max articles per topic set to {val}.")
 
 
+async def cmd_settime(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args or not context.args[0].isdigit():
+        await update.message.reply_text("Usage: /settime 8\nProvide the hour in UTC (0–23).")
+        return
+    hour = int(context.args[0])
+    if hour < 0 or hour > 23:
+        await update.message.reply_text("Hour must be between 0 and 23 (UTC).")
+        return
+    config = load_config()
+    config["send_hour_utc"] = hour
+    save_config(config)
+    await update.message.reply_text(
+        f"Send time set to {hour:02d}:00 UTC.\n"
+        f"Tip: UTC+2 → subtract 2 from your local time to get UTC."
+    )
+
+
 async def cmd_fetch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Fetching articles...")
     config = load_config()
@@ -168,6 +186,7 @@ async def handle_commands(duration: int = 120):
         ("removesource", cmd_removesource),
         ("sources", cmd_sources),
         ("setmax", cmd_setmax),
+        ("settime", cmd_settime),
         ("fetch", cmd_fetch),
     ]:
         app.add_handler(CommandHandler(name, handler))

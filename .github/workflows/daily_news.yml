@@ -2,8 +2,8 @@ name: Daily News Bot
 
 on:
   schedule:
-    - cron: "0 7 * * *"  # 7:00 AM UTC — adjust to your timezone
-  workflow_dispatch:       # Allows manual trigger from GitHub UI
+    - cron: "0 * * * *"  # Every hour — script checks send_hour_utc in config.json
+  workflow_dispatch:       # Allows manual trigger from GitHub UI (always sends)
 
 permissions:
   contents: write          # Needed to commit config/seen changes back
@@ -29,7 +29,13 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python main.py --mode fetch
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            python main.py --mode fetch --force
+          else
+            python main.py --mode fetch
+          fi
 
       - name: Listen for commands (2 min window)
         env:
