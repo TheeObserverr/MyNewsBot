@@ -5,39 +5,40 @@ from datetime import datetime, timezone
 from bot.commands import handle_commands
 from bot.fetcher import fetch_articles
 from bot.sender import send_articles
-from bot.storage import load_config, load_seen, mark_seen
+from bot.storage import get_all_user_ids, get_user_config, load_seen, mark_seen
 
 
-def is_send_time(config: dict) -> bool:
-    """Return True if the current UTC hour matches the configured send hour."""
-    send_hour = config.get("send_hour_utc", 7)
-    return datetime.now(timezone.utc).hour == send_hour
+async def run_fetch_for_user(chat_id: str, force: bool = False):
+    cfg = get_user_config(chat_id)
+    send_hour = cfg.get("send_hour_utc", 7)
 
-
-async def run_fetch(force: bool = False):
-    config = load_config()
-
-    if not force and not is_send_time(config):
-        print(f"[fetch] Not send time yet (send_hour_utc={config.get('send_hour_utc', 7)}). Skipping.")
+    if not force and datetime.now(timezone.utc).hour != send_hour:
+        print(f"[fetch] Skipping {chat_id} — not their send time (send_hour_utc={send_hour})")
         return
 
-    seen = load_seen()
-
-    print(f"[fetch] Topics: {config['topics']}")
+    seen = load_seen(chat_id)
     articles = fetch_articles(
-        topics=config["topics"],
-        custom_sources=config.get("custom_sources", []),
+        topics=cfg["topics"],
+        custom_sources=cfg.get("custom_sources", []),
         seen_ids=seen,
-        max_per_topic=config.get("max_articles_per_topic", 3),
+        max_per_topic=cfg.get("max_articles_per_topic", 3),
     )
 
     if articles:
-        print(f"[fetch] Sending {len(articles)} articles...")
-        await send_articles(articles)
-        mark_seen([a["id"] for a in articles])
-        print("[fetch] Done.")
+        print(f"[fetch] Sending {len(articles)} articles to {chat_id}...")
+        await send_articles(articles, chat_id=chat_id)
+        mark_seen(chat_id, [a["id"] for a in articles])
     else:
-        print("[fetch] No new articles found.")
+        print(f"[fetch] No new articles for {chat_id}.")
+
+
+async def run_fetch(force: bool = False):
+    user_ids = get_all_user_ids()
+    if not user_ids:
+        print("[fetch] No users registered yet.")
+        return
+    for chat_id in user_ids:
+        await run_fetch_for_user(chat_id, force=force)
 
 
 async def main():
@@ -46,7 +47,7 @@ async def main():
         "--mode",
         choices=["fetch", "listen", "both"],
         default="both",
-        help="fetch = send news only | listen = handle commands only | both = fetch then listen",
+        help="fetch = send news | listen = handle commands | both = fetch then listen",
     )
     parser.add_argument(
         "--listen-duration",
@@ -57,7 +58,7 @@ async def main():
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Force fetch regardless of send_hour_utc setting",
+        help="Force fetch regardless of send_hour_utc",
     )
     args = parser.parse_args()
 
