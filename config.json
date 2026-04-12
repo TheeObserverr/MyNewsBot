@@ -1,0 +1,9 @@
+{
+  "topics": [
+    "python",
+    "artificial-intelligence",
+    "data-science"
+  ],
+  "custom_sources": [],
+  "max_articles_per_topic": 3
+}
